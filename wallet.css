@@ -216,3 +216,17 @@ input:focus, textarea:focus {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+
+.balance-amount:hover {
+    transition: filter 0.3s ease, opacity 0.3s ease;
+    cursor: pointer;
+    user-select: none;
+    filter: blur(0);
+    opacity: 1;
+}
+
+.balance-hidden {
+    filter: blur(8px) !important;
+    opacity: 0.5;
+}
