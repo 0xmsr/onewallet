@@ -13,225 +13,238 @@
 </head>
 <body>
 
-<div class="app-container">
-    <div class="header">
-        <div class="logo">⏺ <span>ONE</span> WALLET</div>
-        <div class="header-actions">
-            <button id="wallet-trigger" class="wallet-pill" onclick="openWalletSelector()">
-                <span id="active-wallet-name">Account 1</span>
-                <small id="active-wallet-addr"></small>
-            </button>
-            <button id="logout-btn" class="logout-btn" onclick="logout()">Logout</button>
-        </div>
-
-        <div id="modal-selector" class="modal-overlay">
-            <div class="modal-content list-modal">
-                <div class="modal-header">
-                    <h3>Pilih Wallet</h3>
-                    <button class="close-btn" onclick="closeWalletSelector()">✕</button>
-                </div>
-                <div id="wallet-list-container" class="wallet-list"></div>
-                <button class="btn btn-outline" style="margin-top: 20px;" onclick="goToLogin()">
-                    + Tambah Wallet Baru
+    <div class="app-container">
+        <div class="header">
+            <div class="logo">⏺ <span>ONE</span> WALLET</div>
+            <div class="header-actions">
+                <button id="wallet-trigger" class="wallet-pill" onclick="openWalletSelector()">
+                    <span id="active-wallet-name">Account 1</span>
+                    <small id="active-wallet-addr"></small>
                 </button>
+                <button id="logout-btn" class="logout-btn" onclick="logout()">Logout</button>
             </div>
-        </div>
-    </div>
 
-    <div id="login-view" class="screen active">
-        <div class="text-center" style="margin-top: 20px; margin-bottom: 30px;">
-            <h2>Selamat Datang</h2>
-            <p class="text-muted">Masuk ke wallet OneChain kamu.</p>
-        </div>
-        
-        <div class="tabs-container">
-            <button class="btn-tab active" onclick="switchLoginTab('pk')">Private Key</button>
-            <button class="btn-tab" onclick="switchLoginTab('phrase')">Phrase</button>
-        </div>
-
-        <div id="input-pk-container">
-            <input type="password" id="privateKeyInput" placeholder="Masukkan Private Key">
-        </div>
-        
-        <div id="input-phrase-container" style="display: none;">
-            <textarea id="phraseInput" placeholder="12 kata pemulihan (pisahkan dengan spasi)" rows="3"></textarea>
-        </div>
-
-        <button class="btn" onclick="login()">Masuk Wallet</button>
-        <button class="btn btn-outline" onclick="createOneWallet()">Buat Wallet Baru</button>
-
-        <div id="new-wallet-info" style="display:none; margin-top:25px; background:#0f172a; padding:20px; border-radius:12px; border: 1px solid var(--border);">
-            <p style="color:var(--primary); margin-top:0; font-weight: 600; margin-bottom: 15px;">⚠️ Simpan Cadangan Ini:</p>
-            <div style="margin-bottom:15px;">
-                <strong class="text-muted" style="display: block; margin-bottom: 5px;">Mnemonic Phrase:</strong>
-                <span id="new-phrase" style="color:#10b981; font-family: monospace; font-size: 13px; line-height: 1.5; display: block;"></span>
-            </div>
-            <div>
-                <strong class="text-muted" style="display: block; margin-bottom: 5px;">Private Key:</strong>
-                <span id="new-priv" style="color:#10b981; font-family: monospace; font-size: 12px; word-break: break-all;"></span>
-            </div>
-        </div>
-    </div>
-
-    <div id="dashboard-view" class="screen">
-        <div class="address-box" onclick="copyAddress('display-address')">
-            <span id="display-address"></span> <span style="font-size: 14px;">📋</span>
-        </div>
-        
-        <div class="balance-card">
-            <div class="balance-amount"><span id="display-balance">0.00</span></div>
-            <div class="balance-symbol">ONE</div>
-            <div class="fiat-balance" id="display-fiat">≈ $0.00 USD</div>
-        </div>
-
-        <div class="actions">
-            <div class="action-btn" onclick="showSend()">
-                <div class="action-icon">↗</div><span>Kirim</span>
-            </div>
-            <div class="action-btn" onclick="showReceive()">
-                <div class="action-icon">↙</div><span>Terima</span>
-            </div>
-            <div class="action-btn" onclick="refreshData()">
-                <div class="action-icon">↻</div><span>Refresh</span>
-            </div>
-        </div>
-
-        <button class="btn btn-outline" style="border-color: var(--border); color: var(--text); padding: 10px; margin-bottom: 20px;" onclick="openBackupModal()">
-            🛡️ Lihat Cadangan Wallet
-        </button>
-
-        <div style="margin-top: auto;">
-            <h4 style="font-size: 14px;">Riwayat Terakhir</h4>
-            <div id="tx-history" style="font-size: 13px; color: var(--text-muted); height: 100px; overflow-y: auto; background: #0f172a; border-radius: 12px; padding: 15px;">
-                <div class="text-center" style="margin-top: 15px;">Belum ada transaksi</div>
-            </div>
-        </div>
-    </div>
-
-    <div id="receive-view" class="screen">
-        <div class="text-center">
-            <h3>Terima ONE</h3>
-            <p class="text-muted">Scan QR code di bawah ini untuk menerima aset.</p>
-            
-            <div class="qr-container">
-                <img id="qr-code-img" src="" alt="QR Code" width="180" height="180">
-            </div>
-            
-            <div class="address-box" onclick="copyAddress('receive-address')" style="margin-top: 10px; width: 100%; justify-content: center; padding: 12px;">
-                <span id="receive-address" style="word-break: break-all;"></span> 📋
-            </div>
-        </div>
-        <button class="btn btn-outline" style="margin-top: auto;" onclick="showDashboard()">Kembali</button>
-    </div>
-
-    <div id="send-view" class="screen">
-        <h3>Kirim Aset</h3>
-
-        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
-            <input type="text" id="send-to" placeholder="Alamat tujuan (one...)" style="margin-bottom:0; flex:1;">
-            <button onclick="startScan()" style="background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 12px; padding: 0 15px; cursor: pointer; transition: 0.2s;">📷</button>
-        </div>
-
-        <div id="scanner-container" style="display:none; position: relative; margin-bottom: 20px; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--primary);">
-            <video id="video" style="width: 100%; display: block;"></video>
-            <canvas id="canvas" hidden></canvas>
-            <div style="position: absolute; top: 10px; right: 10px;">
-                <button onclick="stopScan()" style="background: rgba(239,68,68,0.9); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-weight: bold;">✕</button>
-            </div>
-            <div style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); color: white; font-size: 11px; background: rgba(0,0,0,0.6); padding: 4px 12px; border-radius: 20px;">Arahkan ke QR Code</div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; padding: 0 5px;">
-            <span class="text-muted">Jumlah Kirim</span>
-            <span style="color: var(--primary); font-weight: 500;">Tersedia: <span id="send-display-balance">0.0000</span> ONE</span>
-        </div>
-
-        <div style="position: relative; margin-bottom: 15px;">
-            <input type="number" id="send-amount" placeholder="0.00" style="margin-bottom: 0; font-size: 18px; font-weight: 600;">
-            <button onclick="setMaxAmount()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--primary); border: none; color: white; border-radius: 8px; cursor: pointer; font-size: 11px; padding: 6px 10px; font-weight: 700;">MAX</button>
-        </div>
-
-        <div style="padding: 15px; background: #0f172a; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
-            <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px;">
-                <span class="text-muted">Estimasi Biaya:</span>
-                <span style="color: var(--success); font-weight: 600;"><span id="display-gas-fee">0.000021</span> ONE</span>
-            </div>
-            
-            <details style="font-size: 13px;">
-                <summary style="color: var(--primary); cursor:pointer; font-weight: 500;">Pengaturan Gas Cerdas</summary>
-                <div class="gas-presets">
-                    <button class="gas-btn active" onclick="setGasPreset(1, this)">Lambat</button>
-                    <button class="gas-btn" onclick="setGasPreset(5, this)">Normal</button>
-                    <button class="gas-btn" onclick="setGasPreset(10, this)">Cepat</button>
-                </div>
-                <div style="display: flex; gap: 10px; margin-top: 10px;">
-                    <div style="flex: 1;">
-                        <label class="text-muted" style="font-size: 11px; margin-bottom: 5px; display: block;">Gas Price</label>
-                        <input type="number" id="send-gasPrice" value="1" style="padding: 8px; margin-bottom: 0;">
+            <div id="modal-selector" class="modal-overlay">
+                <div class="modal-content list-modal">
+                    <div class="modal-header">
+                        <h3>Pilih Wallet</h3>
+                        <button class="close-btn" onclick="closeWalletSelector()">✕</button>
                     </div>
-                    <div style="flex: 1;">
-                        <label class="text-muted" style="font-size: 11px; margin-bottom: 5px; display: block;">Gas Limit</label>
-                        <input type="number" id="send-gasLimit" value="21000" style="padding: 8px; margin-bottom: 0;">
+                    <div id="wallet-list-container" class="wallet-list"></div>
+                    <button class="btn btn-outline" style="margin-top: 20px;" onclick="goToLogin()">
+                        + Tambah Wallet Baru
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="login-view" class="screen active">
+            <div class="text-center" style="margin-top: 20px; margin-bottom: 30px;">
+                <h2>Selamat Datang</h2>
+                <p class="text-muted">Masuk ke wallet OneChain kamu.</p>
+            </div>
+            
+            <div class="tabs-container">
+                <button class="btn-tab active" onclick="switchLoginTab('pk')">Private Key</button>
+                <button class="btn-tab" onclick="switchLoginTab('phrase')">Phrase</button>
+            </div>
+
+            <div id="input-pk-container">
+                <input type="password" id="privateKeyInput" placeholder="Masukkan Private Key">
+            </div>
+            
+            <div id="input-phrase-container" style="display: none;">
+                <textarea id="phraseInput" placeholder="12 kata pemulihan (pisahkan dengan spasi)" rows="3"></textarea>
+            </div>
+
+            <button class="btn" onclick="login()">Masuk Wallet</button>
+            <button class="btn btn-outline" onclick="createOneWallet()">Buat Wallet Baru</button>
+
+            <div id="new-wallet-info" style="display:none; margin-top:25px; background:#0f172a; padding:20px; border-radius:12px; border: 1px solid var(--border);">
+                <p style="color:var(--primary); margin-top:0; font-weight: 600; margin-bottom: 15px;">⚠️ Simpan Cadangan Ini:</p>
+                <div style="margin-bottom:15px;">
+                    <strong class="text-muted" style="display: block; margin-bottom: 5px;">Mnemonic Phrase:</strong>
+                    <span id="new-phrase" style="color:#10b981; font-family: monospace; font-size: 13px; line-height: 1.5; display: block;"></span>
+                </div>
+                <div>
+                    <strong class="text-muted" style="display: block; margin-bottom: 5px;">Private Key:</strong>
+                    <span id="new-priv" style="color:#10b981; font-family: monospace; font-size: 12px; word-break: break-all;"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="dashboard-view" class="screen">
+            <div class="address-box" onclick="copyAddress('display-address')">
+                <span id="display-address"></span> <span style="font-size: 14px;">📋</span>
+            </div>
+            
+            <div class="balance-card">
+                <h1 id="display-balance" class="balance-amount" onclick="this.classList.toggle('balance-hidden')">0.00</h1>
+                <div class="balance-symbol">ONE</div>
+                <div class="fiat-balance" id="display-fiat">≈ $0.00 USD</div>
+            </div>
+
+            <div class="actions">
+                <div class="action-btn" onclick="showSend()">
+                    <div class="action-icon">↗</div><span>Kirim</span>
+                </div>
+                <div class="action-btn" onclick="showReceive()">
+                    <div class="action-icon">↙</div><span>Terima</span>
+                </div>
+                <div class="action-btn" onclick="refreshData()">
+                    <div class="action-icon">↻</div><span>Refresh</span>
+                </div>
+            </div>
+
+            <button class="btn btn-outline" style="border-color: var(--border); color: var(--text); padding: 10px; margin-bottom: 20px;" onclick="openBackupModal()">
+                🛡️ Lihat Cadangan Wallet
+            </button>
+
+            <div style="margin-top: auto;">
+                <h4 style="font-size: 14px;">Riwayat Terakhir</h4>
+                <div id="tx-history" style="font-size: 13px; color: var(--text-muted); height: 100px; overflow-y: auto; background: #0f172a; border-radius: 12px; padding: 15px;">
+                    <div class="text-center" style="margin-top: 15px;">Belum ada transaksi</div>
+                </div>
+            </div>
+
+            <div id="modal-dapp-approve" class="modal-overlay">
+                <div class="modal-content text-center">
+                    <h3 style="margin-bottom: 10px;">Koneksi DApp</h3>
+                    <p class="text-muted" style="margin-bottom: 20px;">Situs web ini meminta akses ke alamat publik Anda.</p>
+                    <div style="background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
+                        <strong id="dapp-origin-display" style="color: var(--primary); font-size: 16px;">https://example.com</strong>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-outline" style="flex:1" onclick="rejectDApp()">Tolak</button>
+                        <button class="btn" style="flex:1" onclick="approveDApp()">Izinkan</button>
                     </div>
                 </div>
-            </details>
+            </div>
         </div>
 
-        <div style="margin-top: auto; display: flex; gap: 12px;">
-            <button class="btn btn-outline" style="flex:1" onclick="showDashboard()">Batal</button>
-            <button class="btn" style="flex:2" onclick="sendTransaction()">Kirim Sekarang</button>
+        <div id="receive-view" class="screen">
+            <div class="text-center">
+                <h3>Terima ONE</h3>
+                <p class="text-muted">Scan QR code di bawah ini untuk menerima aset.</p>
+                <div class="qr-container">
+                    <img id="qr-code-img" src="" alt="QR Code" width="180" height="180">
+                </div>
+                <div class="address-box" onclick="copyAddress('receive-address')" style="margin-top: 10px; width: 100%; justify-content: center; padding: 12px;">
+                    <span id="receive-address" style="word-break: break-all;"></span> 📋
+                </div>
+            </div>
+            <button class="btn btn-outline" style="margin-top: auto;" onclick="showDashboard()">Kembali</button>
         </div>
-    </div>
-    
-    <div id="toast" class="toast"></div>
-</div>
 
-<div id="modal-rename" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Ubah Nama</h3>
-            <button class="close-btn" onclick="closeRenameModal()">✕</button>
-        </div>
-        <p class="text-muted" style="margin-bottom: 15px;">Berikan identitas unik untuk dompet ini.</p>
-        <input type="text" id="new-account-name" placeholder="Contoh: Dompet Utama" maxlength="20">
-        <div class="modal-actions">
-            <button class="btn btn-outline" style="flex:1" onclick="closeRenameModal()">Batal</button>
-            <button class="btn" style="flex:1" onclick="saveNewName()">Simpan</button>
-        </div>
-    </div>
-</div>
+        <div id="send-view" class="screen">
+            <h3>Kirim Aset</h3>
+            <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+                <input type="text" id="send-to" placeholder="Alamat tujuan (one...)" oninput="validateTargetAddress(this.value)">
+                <small id="address-warning" style="color: var(--danger); font-size: 10px; display: none;">Format alamat tidak valid!</small>
+                <button onclick="startScan()" style="background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 12px; padding: 0 15px; cursor: pointer; transition: 0.2s;">📷</button>
+            </div>
 
-<div id="modal-backup" class="modal-overlay">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3>Cadangan Wallet</h3>
-            <button class="close-btn" onclick="closeBackupModal()">✕</button>
+            <div id="scanner-container" style="display:none; position: relative; margin-bottom: 20px; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--primary);">
+                <video id="video" style="width: 100%; display: block;"></video>
+                <canvas id="canvas" hidden></canvas>
+                <div style="position: absolute; top: 10px; right: 10px;">
+                    <button onclick="stopScan()" style="background: rgba(239,68,68,0.9); color: white; border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-weight: bold;">✕</button>
+                </div>
+                <div style="position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); color: white; font-size: 11px; background: rgba(0,0,0,0.6); padding: 4px 12px; border-radius: 20px;">Arahkan ke QR Code</div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 8px; padding: 0 5px;">
+                <span class="text-muted">Jumlah Kirim</span>
+                <span style="color: var(--primary); font-weight: 500;">Tersedia: <span id="send-display-balance">0.0000</span> ONE</span>
+            </div>
+
+            <div style="position: relative; margin-bottom: 15px;">
+                <input type="number" id="send-amount" placeholder="0.00" style="margin-bottom: 0; font-size: 18px; font-weight: 600;">
+                <button onclick="setMaxAmount()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: var(--primary); border: none; color: white; border-radius: 8px; cursor: pointer; font-size: 11px; padding: 6px 10px; font-weight: 700;">MAX</button>
+            </div>
+
+            <div style="padding: 15px; background: #0f172a; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 10px;">
+                    <span class="text-muted">Estimasi Biaya:</span>
+                    <span style="color: var(--success); font-weight: 600;"><span id="display-gas-fee">0.000021</span> ONE</span>
+                </div>
+                
+                <details style="font-size: 13px;">
+                    <summary style="color: var(--primary); cursor:pointer; font-weight: 500;">Pengaturan Gas Cerdas</summary>
+                    <div class="gas-presets">
+                        <button class="gas-btn active" onclick="setGasPreset(1, this)">Lambat</button>
+                        <button class="gas-btn" onclick="setGasPreset(5, this)">Normal</button>
+                        <button class="gas-btn" onclick="setGasPreset(10, this)">Cepat</button>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <div style="flex: 1;">
+                            <label class="text-muted" style="font-size: 11px; margin-bottom: 5px; display: block;">Gas Price</label>
+                            <input type="number" id="send-gasPrice" value="1" style="padding: 8px; margin-bottom: 0;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="text-muted" style="font-size: 11px; margin-bottom: 5px; display: block;">Gas Limit</label>
+                            <input type="number" id="send-gasLimit" value="21000" style="padding: 8px; margin-bottom: 0;">
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div style="margin-top: auto; display: flex; gap: 12px;">
+                <button class="btn btn-outline" style="flex:1" onclick="showDashboard()">Batal</button>
+                <button class="btn" style="flex:2" onclick="sendTransaction()">Kirim Sekarang</button>
+            </div>
         </div>
-        <p class="text-muted" style="margin-bottom: 20px;">
-            ⚠️ <strong>Peringatan:</strong> Jangan pernah bagikan informasi ini kepada siapapun!
-        </p>
         
-        <div style="text-align: left; background: #0f172a; padding: 16px; border-radius: 12px; font-size: 12px; border: 1px solid var(--border);">
-            <div style="margin-bottom:15px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <strong style="color: var(--primary);">Mnemonic Phrase:</strong>
-                    <button class="action-icon-btn" onclick="copyToClipboard('backup-phrase')">📋</button>
-                </div>
-                <span id="backup-phrase" style="color:var(--text); word-break: break-word; font-family: monospace; line-height: 1.5; display: block; background: var(--card); padding: 10px; border-radius: 8px;"></span>
+        <div id="toast" class="toast"></div>
+    </div>
+
+    <div id="modal-rename" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Ubah Nama</h3>
+                <button class="close-btn" onclick="closeRenameModal()">✕</button>
             </div>
-            
-            <div>
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                    <strong style="color: var(--primary);">Private Key:</strong>
-                    <button class="action-icon-btn" onclick="copyToClipboard('backup-priv')">📋</button>
-                </div>
-                <span id="backup-priv" style="color:var(--text); word-break: break-all; font-family: monospace; display: block; background: var(--card); padding: 10px; border-radius: 8px;"></span>
+            <p class="text-muted" style="margin-bottom: 15px;">Berikan identitas unik untuk dompet ini.</p>
+            <input type="text" id="new-account-name" placeholder="Contoh: Dompet Utama" maxlength="20">
+            <div class="modal-actions">
+                <button class="btn btn-outline" style="flex:1" onclick="closeRenameModal()">Batal</button>
+                <button class="btn" style="flex:1" onclick="saveNewName()">Simpan</button>
             </div>
         </div>
     </div>
-</div>
 
-<script src="bip39.js"></script> 
-<script src="wallet.js"></script>
+    <div id="modal-backup" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Cadangan Wallet</h3>
+                <button class="close-btn" onclick="closeBackupModal()">✕</button>
+            </div>
+            <p class="text-muted" style="margin-bottom: 20px;">
+                ⚠️ <strong>Peringatan:</strong> Jangan pernah bagikan informasi ini kepada siapapun!
+            </p>
+            
+            <div style="text-align: left; background: #0f172a; padding: 16px; border-radius: 12px; font-size: 12px; border: 1px solid var(--border);">
+                <div style="margin-bottom:15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <strong style="color: var(--primary);">Mnemonic Phrase:</strong>
+                        <button class="action-icon-btn" onclick="copyToClipboard('backup-phrase')">📋</button>
+                    </div>
+                    <span id="backup-phrase" style="color:var(--text); word-break: break-word; font-family: monospace; line-height: 1.5; display: block; background: var(--card); padding: 10px; border-radius: 8px;"></span>
+                </div>
+                
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                        <strong style="color: var(--primary);">Private Key:</strong>
+                        <button class="action-icon-btn" onclick="copyToClipboard('backup-priv')">📋</button>
+                    </div>
+                    <span id="backup-priv" style="color:var(--text); word-break: break-all; font-family: monospace; display: block; background: var(--card); padding: 10px; border-radius: 8px;"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="bip39.js"></script> 
+    <script src="wallet.js"></script>
+    <script src="connector.js"></script>
 </body>
 </html>
