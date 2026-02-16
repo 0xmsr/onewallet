@@ -4,7 +4,8 @@ window.process = { env: {} };
 
 let walletList = [];
 const bip39 = window.bip39;
-
+const ENCRYPTION_KEY_PREFIX = "one_wallet_auth_";
+let isBalanceHidden = false;
 let videoStream = null;
 let currentLoginMode = 'pk';
 let currentImportMode = 'pk';
@@ -12,6 +13,7 @@ const RPC_URL = 'https://regardlessly-foundationary-tawanda.ngrok-free.dev'; // 
 const ec = new elliptic.ec('secp256k1');
 let myWallet = { privateKey: null, publicKey: null, address: null, keyPair: null };
 let pendingNonce = null;
+let currentPendingDApp = null;
 const ONE_TO_USD = 0.1; 
 
 window.onload = () => {
@@ -55,6 +57,19 @@ function saveToMultiWallet(pk, addr, mnemonic = null) {
     }
     walletList = saved;
     updateWalletSelectorUI();
+}
+
+function encryptData(data, pin) {
+    return CryptoJS.AES.encrypt(data, pin).toString();
+}
+
+function decryptData(ciphertext, pin) {
+    try {
+        const bytes = CryptoJS.AES.decrypt(ciphertext, pin);
+        return bytes.toString(CryptoJS.enc.Utf8);
+    } catch (e) {
+        return null;
+    }
 }
 
 function openWalletSelector() {
@@ -144,6 +159,11 @@ function saveNewName() {
     }
 }
 
+function saveWalletSecurely(privateKey, pin) {
+    const encrypted = encryptData(privateKey, pin);
+    localStorage.setItem('oneWalletSession_encrypted', encrypted);
+}
+
 function login(isAuto = false) {
     let privKey = "";
     let mnemonicUsed = null;
@@ -226,7 +246,7 @@ async function refreshData() {
         document.getElementById('display-balance').innerText = "0.0000";
         document.getElementById('send-display-balance').innerText = "0.0000";
     }
-    renderHistory();
+    refreshHistory();
 }
 
 function updateGasFeeDisplay() {
@@ -240,6 +260,9 @@ function setGasPreset(gwei, btnElement) {
     document.getElementById('send-gasPrice').value = gwei;
     document.querySelectorAll('.gas-btn').forEach(btn => btn.classList.remove('active'));
     btnElement.classList.add('active');
+    let timeEst = gwei < 5 ? "~5-10 menit" : (gwei < 10 ? "~1-2 menit" : "< 30 detik");
+    showToast(`Estimasi waktu konfirmasi: ${timeEst}`);
+    
     updateGasFeeDisplay();
 }
 
@@ -287,7 +310,7 @@ function calculateHash(tx) {
 }
 
 function createOneWallet() {
-    const mnemonic = generateNewMnemonic();
+    const mnemonic = generateNewMnemonic(); 
     const priv = getPrivateKeyFromMnemonic(mnemonic);
     const keyPair = ec.keyFromPrivate(priv);
     const pubKey = keyPair.getPublic(false, 'hex');
@@ -516,84 +539,148 @@ function copyToClipboard(elementId) {
 }
 
 async function refreshHistory() {
+    const historyContainer = document.getElementById('tx-history');
     if (!myWallet.address) return;
-    const container = document.getElementById('tx-history');
-    const storageKey = `history_${myWallet.address}`;
-    let localHistory = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    const EXPLORER_API = `https://regardlessly-foundationary-tawanda.ngrok-free.dev/api/blocks`; 
 
     try {
-        const res = await fetch(`${RPC_URL}/mempool`, {headers: { "ngrok-skip-browser-warning": "69420" }});
-        if (res.ok) {
-            const data = await res.json();
-            const pendingTxs = (data.transactions || []).filter(tx => 
-                tx.fromAddress === myWallet.address || tx.toAddress === myWallet.address
-            );
-            pendingTxs.forEach(ptx => {
-                const found = localHistory.find(lh => lh.hash === ptx.hash);
-                if (found) found.status = 'Pending';
-            });
-        }
-    } catch (e) {
-        console.log("Gagal cek mempool, menampilkan history lokal saja.");
-    }
-    if (localHistory.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">Belum ada riwayat transaksi</div>';
-        return;
-    }
+        const response = await fetch(EXPLORER_API, {
+            headers: { "ngrok-skip-browser-warning": "69420" }
+        });
+        
+        if (!response.ok) throw new Error("Gagal mengambil data dari Explorer");
+        
+        const blocks = await response.json();
+        let myTransactions = [];
+        blocks.forEach(block => {
+            if (block.transactions && Array.isArray(block.transactions)) {
+                block.transactions.forEach(tx => {
+                    const from = tx.fromAddress || tx.from;
+                    const to = tx.toAddress || tx.to;
 
-    container.innerHTML = localHistory.map(tx => {
-        const isReceive = tx.toAddress === myWallet.address;
-        return `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border);">
-            <div>
-                <div style="font-weight:600; font-size:14px; color:var(--text);">${isReceive ? 'Terima ONE' : 'Kirim ONE'}</div>
-                <div style="font-size:11px; color:var(--text-muted);">${new Date(tx.timestamp).toLocaleString()}</div>
+                    if (from === myWallet.address || to === myWallet.address) {
+                        myTransactions.push({
+                            ...tx,
+                            fromAddress: from,
+                            toAddress: to,
+                            timestamp: tx.timestamp || block.timestamp
+                        });
+                    }
+                });
+            }
+        });
+
+        if (myTransactions.length === 0) {
+            historyContainer.innerHTML = '<div class="text-center" style="margin-top: 20px; color: #94a3b8; font-size: 13px;">Belum ada riwayat transaksi</div>';
+            return;
+        }
+
+        historyContainer.innerHTML = myTransactions.map(tx => {
+const isSent = tx.fromAddress === myWallet.address;
+const typeLabel = isSent ? 'Kirim' : 'Terima';
+const typeColor = isSent ? '#ef4444' : '#10b981';
+const typeIcon = isSent ? '↗' : '↙';
+const displayAddr = isSent ? tx.toAddress : tx.fromAddress;
+const rawAmount = parseFloat(tx.amount);
+const amountFormatted = rawAmount >= 1000000 ? (rawAmount / 1e9).toFixed(4) : rawAmount.toFixed(4);
+
+return `
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <div style="background: ${isSent ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}; 
+                        color: ${typeColor}; width: 35px; height: 35px; border-radius: 10px; 
+                        display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold;">
+                ${typeIcon}
             </div>
-            <div style="text-align:right;">
-                <div style="color:${isReceive ? 'var(--success)' : 'var(--danger)'}; font-weight:700;">
-                    ${isReceive ? '+' : '-'} ${tx.amount}
-                </div>
-                <div style="font-size:10px; color:var(--primary);">${tx.status || 'Selesai'}</div>
+            <div>
+                <div style="color: #f8fafc; font-weight: 600; font-size: 13px;">${typeLabel}</div>
+                <small style="color: #94a3b8; font-family: monospace;">
+                    ${displayAddr ? (displayAddr.substring(0, 8) + '...') : 'System'}
+                </small>
             </div>
         </div>
-    `}).join('');
+        <div style="text-align: right;">
+            <div style="color: ${typeColor}; font-weight: 700; font-size: 14px;">
+                ${isSent ? '-' : '+'}${amountFormatted} ONE
+            </div>
+            <small style="color: #94a3b8; font-size: 10px;">
+                ${new Date(tx.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+            </small>
+        </div>
+    </div>
+`;
+        }).join('');
+
+    } catch (e) {
+        console.error("Scanning Error:", e);
+        historyContainer.innerHTML = `
+            <div class="text-center" style="padding: 20px;">
+                <p style="color: #ef4444; font-size: 12px;">Gagal terhubung ke Explorer API</p>
+            </div>`;
+    }
 }
 
-function saveToLocalHistory(txLog) {
-    const storageKey = `history_${myWallet.address}`;
-    let history = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const existingIndex = history.findIndex(item => item.nonce === txLog.nonce && item.fromAddress === txLog.fromAddress);
+function renderScannedHistory(transactions) {
+    const container = document.getElementById('tx-history');
+    transactions.sort((a, b) => b.timestamp - a.timestamp);
 
-    if (existingIndex !== -1) {
-        history[existingIndex] = { ...txLog, status: 'RBF / Updated' };
-    } else {
-        history.unshift(txLog);
-    }
-    
-    if (history.length > 20) history.pop();
-    localStorage.setItem(storageKey, JSON.stringify(history));
+    container.innerHTML = transactions.map(tx => {
+        const isSent = tx.fromAddress === myWallet.address;
+        const typeLabel = isSent ? 'Kirim' : 'Terima';
+        const typeColor = isSent ? '#ef4444' : '#10b981';
+        const typeIcon = isSent ? '↗' : '↙';
+        const displayAddr = isSent ? tx.toAddress : tx.fromAddress;
+        const amount = tx.amount > 1000000 ? (tx.amount / 1e9).toFixed(4) : tx.amount;
+
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #1e293b;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="background: ${isSent ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)'}; 
+                                color: ${typeColor}; width: 32px; height: 32px; border-radius: 8px; 
+                                display: flex; align-items: center; justify-content: center; font-weight: bold;">
+                        ${typeIcon}
+                    </div>
+                    <div>
+                        <div style="color: var(--text); font-weight: 600; font-size: 13px;">${typeLabel}</div>
+                        <small class="text-muted">${displayAddr.substring(0, 8)}...</small>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="color: ${typeColor}; font-weight: 700; font-size: 13px;">
+                        ${isSent ? '-' : '+'}${amount} ONE
+                    </div>
+                    <small class="text-muted" style="font-size: 10px;">${new Date(tx.timestamp).toLocaleTimeString()}</small>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function saveToLocalHistory(tx) {
+    let history = JSON.parse(localStorage.getItem(`history_${myWallet.address}`) || "[]");
+    history.unshift(tx);
+    localStorage.setItem(`history_${myWallet.address}`, JSON.stringify(history.slice(0, 10)));
     renderHistory();
 }
 
 function renderHistory() {
     const container = document.getElementById('tx-history');
-    const storageKey = `history_${myWallet.address}`;
-    const history = JSON.parse(localStorage.getItem(storageKey) || "[]");
-
+    const history = JSON.parse(localStorage.getItem(`history_${myWallet.address}`) || "[]");
+    
     if (history.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:12px;">Belum ada riwayat transaksi di perangkat ini</div>';
+        container.innerHTML = '<div class="text-center" style="margin-top: 15px;">Belum ada transaksi</div>';
         return;
     }
 
     container.innerHTML = history.map(tx => `
-        <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; justify-content:space-between; margin-bottom:10px; padding-bottom:5px; border-bottom:1px solid #334155">
             <div>
-                <div style="font-weight:600; font-size:14px; color:var(--text);">Kirim ONE</div>
-                <div style="font-size:11px; color:var(--text-muted);">${new Date(tx.timestamp).toLocaleString()}</div>
+                <div style="color:var(--text)">${tx.toAddress.substring(0,10)}...</div>
+                <small class="text-muted">${new Date(tx.timestamp).toLocaleTimeString()}</small>
             </div>
-            <div style="text-align:right;">
-                <div style="color:var(--danger); font-weight:700;">- ${tx.amount}</div>
-                <div style="font-size:10px; font-family:monospace; color:var(--primary);">${tx.hash.substring(0,8)}...</div>
+            <div style="text-align:right">
+                <div style="color:var(--primary)">-${tx.amount} ONE</div>
+                <small style="color:var(--success)">${tx.status}</small>
             </div>
         </div>
     `).join('');
@@ -611,5 +698,119 @@ function openModal(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.style.display = 'flex';
+    }
+}
+
+function toggleBalancePrivacy() {
+    const balanceEl = document.getElementById('display-balance');
+    isBalanceHidden = !isBalanceHidden;
+    
+    if (isBalanceHidden) {
+        balanceEl.classList.add('balance-hidden');
+        localStorage.setItem('privacy_mode', 'true');
+    } else {
+        balanceEl.classList.remove('balance-hidden');
+        localStorage.setItem('privacy_mode', 'false');
+    }
+}
+
+function addToAddressBook(address) {
+    let contacts = JSON.parse(localStorage.getItem('contacts') || "[]");
+    if (!contacts.includes(address)) {
+        contacts.push(address);
+        localStorage.setItem('contacts', JSON.stringify(contacts.slice(-5)));
+    }
+}
+
+function validateTargetAddress(addr) {
+    const warning = document.getElementById('address-warning');
+    if (addr.length > 0 && !addr.startsWith('one')) {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+}
+
+function checkExternalRequests() {
+    const request = localStorage.getItem('one_pending_request');
+    if (request) {
+        const parsed = JSON.parse(request);
+        if (Date.now() - parsed.timestamp < 60000) {
+            if (confirm(`Aplikasi eksternal meminta kirim ${parsed.data.amount} ONE ke ${parsed.data.to}. Lanjutkan?`)) {
+                showSend();
+                document.getElementById('send-to').value = parsed.data.to;
+                document.getElementById('send-amount').value = parsed.data.amount;
+                showToast("Silahkan tinjau dan klik 'Kirim Sekarang'");
+            }
+        }
+        localStorage.removeItem('one_pending_request');
+    }
+}
+
+setInterval(checkExternalRequests, 3000);
+
+function listenToExternalRequests() {
+    const pendingRequest = localStorage.getItem('one_pending_request');
+    if (pendingRequest) {
+        try {
+            const request = JSON.parse(pendingRequest);
+            if (request.type === 'APPROVE_CONNECTION') {
+                currentPendingDApp = request.origin;
+                document.getElementById('dapp-origin-display').innerText = request.origin;
+                document.getElementById('modal-dapp-approve').style.display = 'flex';
+                localStorage.removeItem('one_pending_request');
+            }
+        } catch (e) {
+            console.error("Error parsing DApp request", e);
+        }
+    }
+}
+
+function approveDApp() {
+    if (currentPendingDApp) {
+        let approvedDApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
+        approvedDApps[currentPendingDApp] = Date.now();
+        localStorage.setItem('approved_dapps', JSON.stringify(approvedDApps));
+        showToast("DApp berhasil terhubung!");
+    }
+    document.getElementById('modal-dapp-approve').style.display = 'none';
+    currentPendingDApp = null;
+    renderDAppList();
+}
+
+function rejectDApp() {
+    showToast("Koneksi DApp ditolak.");
+    document.getElementById('modal-dapp-approve').style.display = 'none';
+    currentPendingDApp = null;
+}
+
+setInterval(listenToExternalRequests, 2000);
+
+function disconnectDApp(origin) {
+    let approvedDApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
+    delete approvedDApps[origin];
+    localStorage.setItem('approved_dapps', JSON.stringify(approvedDApps));
+    renderDAppList();
+    showToast(`Terputus dari ${origin}`);
+}
+
+function renderDAppList() {
+    const container = document.getElementById('dapp-list');
+    const approvedDApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
+    
+    container.innerHTML = Object.keys(approvedDApps).length === 0 
+        ? '<div class="text-muted text-center">Tidak ada DApp terhubung</div>' 
+        : '';
+
+    for (const origin in approvedDApps) {
+        container.innerHTML += `
+            <div class="wallet-item">
+                <div class="wallet-info">
+                    <div>${origin.replace('https://', '')}</div>
+                    <small>Terhubung pada: ${new Date(approvedDApps[origin]).toLocaleDateString()}</small>
+                </div>
+                <button class="logout-btn" style="display:block" onclick="disconnectDApp('${origin}')">Revoke</button>
+            </div>
+        `;
     }
 }
