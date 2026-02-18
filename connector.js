@@ -1,5 +1,5 @@
 /**
- * OneChain Wallet Connector v1
+ * OneChain Wallet Connector v1.1
  */
 
 class OneChainConnector {
@@ -8,34 +8,45 @@ class OneChainConnector {
         this._connected = false;
     }
 
-    async requestAccounts() {
-        const origin = window.location.origin;
-        const approvedDApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
-        if (approvedDApps[origin]) {
-            return this._getActiveAddress();
-        }
-
-        localStorage.setItem('one_pending_request', JSON.stringify({
-            type: 'APPROVE_CONNECTION',
-            origin: origin,
-            timestamp: Date.now()
-        }));
-
-        return new Promise((resolve, reject) => {
-            const checkInterval = setInterval(() => {
-                const updatedApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
-                if (updatedApps[origin]) {
-                    clearInterval(checkInterval);
-                    resolve(this._getActiveAddress());
-                }
-            }, 1000);
-        });
+    async requestConnect() {
+    const origin = window.location.origin;
+    const approvedDApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
+    if (approvedDApps[origin]) {
+        return this._getActiveAddress();
     }
+
+    const requestId = 'req_' + Date.now();
+    localStorage.setItem('one_pending_request', JSON.stringify({
+        type: 'CONNECT',
+        origin: origin,
+        id: requestId
+    }));
+
+    return new Promise((resolve, reject) => {
+        const checkInterval = setInterval(() => {
+            const updatedApps = JSON.parse(localStorage.getItem('approved_dapps') || "{}");
+            if (updatedApps[origin]) {
+                clearInterval(checkInterval);
+                resolve(this._getActiveAddress());
+            }
+            
+            const response = localStorage.getItem(`one_res_${requestId}`);
+            if (response) {
+                const resData = JSON.parse(response);
+                if (!resData.success) {
+                    clearInterval(checkInterval);
+                    localStorage.removeItem(`one_res_${requestId}`);
+                    reject(resData.error);
+                }
+            }
+        }, 1000);
+    });
+}
 
     async sendTransaction(txParams) {
         const txId = 'tx_' + Date.now();
         localStorage.setItem('one_pending_request', JSON.stringify({
-            type: 'SEND_TX',
+            type: 'TRANSFER',
             data: txParams,
             txId: txId,
             origin: window.location.origin,
@@ -63,28 +74,24 @@ class OneChainConnector {
     }
 
     async getBalance(address) {
-        const RPC_URL = 'https://regardlessly-foundationary-tawanda.ngrok-free.dev'; 
-        try {
-            const res = await fetch(`${RPC_URL}/balance/${address}`, {
-                headers: { "ngrok-skip-browser-warning": "69420" }
-            });
-            const data = await res.json();
-            return data.liquid || "0";
-        } catch (e) {
-            console.error("Connector Error:", e);
-            return "0";
-        }
-    }
+    const DEFAULT_RPC = 'https://regardlessly-foundationary-tawanda.ngrok-free.dev';
+    const RPC_URL = localStorage.getItem('custom_rpc_url') || DEFAULT_RPC;
 
-    async sendTransaction(txParams) {
-        localStorage.setItem('one_pending_request', JSON.stringify({
-            type: 'SEND_TX',
-            data: txParams,
-            timestamp: Date.now()
-        }));
-        
-        alert("Permintaan transaksi dikirim ke OneChain Wallet. Silahkan buka tab wallet untuk konfirmasi.");
+    try {
+        const res = await fetch(`${RPC_URL}/balance/${address}`, {
+            headers: { 
+                "ngrok-skip-browser-warning": "69420",
+                "Content-Type": "application/json"
+            }
+        });
+        const data = await res.json();
+        return data.liquid || "0";
+    } catch (e) {
+        console.error("Connector RPC Error:", e);
+        return "0";
     }
+}
+
 }
 
 window.onechain = new OneChainConnector();
