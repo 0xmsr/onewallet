@@ -15,6 +15,7 @@
 
     <div class="app-container">
         <div class="header">
+            <canvas id="addr-icon" width="32" height="32" style="border-radius: 50%;"></canvas>
             <div class="logo">⏺ <span>ONE</span> WALLET</div>
             <div class="header-actions">
                 <button id="wallet-trigger" class="wallet-pill" onclick="openWalletSelector()">
@@ -23,6 +24,26 @@
                 </button>
                 <button id="logout-btn" class="logout-btn" onclick="logout()">Logout</button>
             </div>
+            <div id="modal-rpc" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Pengaturan RPC</h3>
+            <button class="close-btn" onclick="closeModal('modal-rpc')">&times;</button>
+        </div>
+        <div style="padding: 10px 0;">
+            <p class="text-muted" style="margin-bottom: 10px;">Masukkan URL RPC kustom Anda:</p>
+            <input type="text" id="rpc-url-input" placeholder="https://your-rpc-url.com">
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <button onclick="saveRPC()" class="btn" style="flex:1">Simpan</button>
+                <button onclick="resetRPC()" class="btn btn-outline" style="flex:1; border-color: var(--danger); color: var(--danger);">Reset</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="action-btn" onclick="openRPCModal()">
+    <div class="action-icon" style="background: #64748b;">⚙️</div><span>RPC</span>
+</div>
 
             <div id="modal-selector" class="modal-overlay">
                 <div class="modal-content list-modal">
@@ -107,19 +128,32 @@
                 </div>
             </div>
 
-            <div id="modal-dapp-approve" class="modal-overlay">
-                <div class="modal-content text-center">
-                    <h3 style="margin-bottom: 10px;">Koneksi DApp</h3>
-                    <p class="text-muted" style="margin-bottom: 20px;">Situs web ini meminta akses ke alamat publik Anda.</p>
-                    <div style="background: #0f172a; padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px;">
-                        <strong id="dapp-origin-display" style="color: var(--primary); font-size: 16px;">https://example.com</strong>
-                    </div>
-                    <div class="modal-actions">
-                        <button class="btn btn-outline" style="flex:1" onclick="rejectDApp()">Tolak</button>
-                        <button class="btn" style="flex:1" onclick="approveDApp()">Izinkan</button>
-                    </div>
-                </div>
+            <button class="action-btn" onclick="openDAppModal()">
+    🌐 Kelola Koneksi DApp
+</button>
+
+            <div id="modal-dapps" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>DApp Terhubung</h3>
+            <button class="close-btn" onclick="closeModal('modal-dapps')">&times;</button>
+        </div>
+        <div id="dapp-list" class="dapp-list-container">
             </div>
+    </div>
+</div>
+
+            <div id="modal-dapp-approve" class="modal-overlay" style="display:none;">
+    <div class="modal-content">
+        <h3>Permintaan Koneksi</h3>
+        <p>Website ini ingin terhubung ke wallet Anda:</p>
+        <div id="dapp-origin-display" style="font-weight: bold; margin: 10px 0; color: var(--primary);"></div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button onclick="approveDApp()" class="btn-primary" style="flex:1">Izinkan</button>
+            <button onclick="rejectDApp()" class="btn-danger" style="flex:1">Tolak</button>
+        </div>
+    </div>
+</div>
         </div>
 
         <div id="receive-view" class="screen">
@@ -143,6 +177,8 @@
                 <small id="address-warning" style="color: var(--danger); font-size: 10px; display: none;">Format alamat tidak valid!</small>
                 <button onclick="startScan()" style="background: var(--card); border: 1px solid var(--border); color: var(--text); border-radius: 12px; padding: 0 15px; cursor: pointer; transition: 0.2s;">📷</button>
             </div>
+            <div id="own-wallets-list" style="display: none; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; margin-top: 5px; max-height: 150px; overflow-y: auto; padding: 5px;"></div><button onclick="toggleOwnWallets()" style="background: none; border: none; color: var(--primary); font-size: 11px; cursor: pointer; margin-top: 5px; padding: 0 5px;">+ Kirim ke akun saya sendiri</button>
+            <br>
 
             <div id="scanner-container" style="display:none; position: relative; margin-bottom: 20px; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid var(--primary);">
                 <video id="video" style="width: 100%; display: block;"></video>
@@ -213,35 +249,86 @@
         </div>
     </div>
 
-    <div id="modal-backup" class="modal-overlay">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Cadangan Wallet</h3>
-                <button class="close-btn" onclick="closeBackupModal()">✕</button>
+    <div id="modal-backup" class="modal-overlay" style="display:none;">
+    <div class="modal-content backup-card">
+        <div class="modal-header">
+            <h3>Keamanan Cadangan</h3>
+            <button class="close-btn" onclick="closeBackupModal()">&times;</button>
+        </div>
+
+        <div id="backup-quest-1">
+            <div class="backup-warning">
+                <strong>Pertanyaan 1 dari 2</strong>
+                <p>Apa yang terjadi jika Anda kehilangan Seed Phrase atau Private Key ini?</p>
             </div>
-            <p class="text-muted" style="margin-bottom: 20px;">
-                ⚠️ <strong>Peringatan:</strong> Jangan pernah bagikan informasi ini kepada siapapun!
-            </p>
-            
-            <div style="text-align: left; background: #0f172a; padding: 16px; border-radius: 12px; font-size: 12px; border: 1px solid var(--border);">
-                <div style="margin-bottom:15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <strong style="color: var(--primary);">Mnemonic Phrase:</strong>
-                        <button class="action-icon-btn" onclick="copyToClipboard('backup-phrase')">📋</button>
-                    </div>
-                    <span id="backup-phrase" style="color:var(--text); word-break: break-word; font-family: monospace; line-height: 1.5; display: block; background: var(--card); padding: 10px; border-radius: 8px;"></span>
-                </div>
-                
-                <div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                        <strong style="color: var(--primary);">Private Key:</strong>
-                        <button class="action-icon-btn" onclick="copyToClipboard('backup-priv')">📋</button>
-                    </div>
-                    <span id="backup-priv" style="color:var(--text); word-break: break-all; font-family: monospace; display: block; background: var(--card); padding: 10px; border-radius: 8px;"></span>
-                </div>
+            <div class="quest-options" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-outline" onclick="handleQuestBackup(1, false)">A. Meminta bantuan Developer untuk reset akun</button>
+                <button class="btn btn-outline" onclick="handleQuestBackup(1, true)">B. Saldo hilang selamanya, tidak bisa dipulihkan</button>
             </div>
         </div>
+
+        <div id="backup-quest-2" style="display: none;">
+            <div class="backup-warning" style="background: rgba(255, 166, 0, 0.1); color: #ffa600; border-color: #ffa600;">
+                <strong>Pertanyaan 2 dari 2</strong>
+                <p>Bolehkah Anda memberikan Seed Phrase kepada Admin atau CS yang mengaku ingin membantu?</p>
+            </div>
+            <div class="quest-options" style="display: flex; flex-direction: column; gap: 10px; margin-top: 15px;">
+                <button class="btn btn-outline" onclick="handleQuestBackup(2, true)">A. TIDAK BOLEH! Siapapun yang meminta adalah penipu</button>
+                <button class="btn btn-outline" onclick="handleQuestBackup(2, false)">B. Boleh, asal mereka memang petugas resmi</button>
+            </div>
+        </div>
+
+        <div id="backup-main-data" style="display: none;">
+            <div class="backup-warning" style="background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: #10b981;">
+                <strong>✅ Verifikasi Berhasil</strong>
+                <p>Simpan data di bawah ini di tempat yang aman dan offline.</p>
+            </div>
+
+            <div class="backup-section">
+                <label>Seed Phrase (12 Kata)</label>
+                <div class="key-box">
+                    <p id="backup-phrase"></p>
+                    <button onclick="copyToClipboard('backup-phrase')">Salin</button>
+                </div>
+            </div>
+
+            <div class="backup-section">
+                <label>Private Key (Hex)</label>
+                <div class="key-box">
+                    <p id="backup-priv" class="priv-text"></p>
+                    <button onclick="copyToClipboard('backup-priv')">Salin</button>
+                </div>
+            </div>
+            <button class="btn" style="width:100%; margin-top:10px" onclick="closeBackupModal()">Saya Sudah Simpan</button>
+        </div>
     </div>
+</div>
+
+    <div id="modal-tx-detail" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 340px;">
+        <div class="modal-header">
+            <h3>Detail Transaksi</h3>
+            <button class="close-btn" onclick="closeModal('modal-tx-detail')">&times;</button>
+        </div>
+        <div id="tx-detail-content" style="padding: 15px 0; font-size: 13px;">
+            </div>
+        <button class="btn" onclick="closeModal('modal-tx-detail')" style="width: 100%;">Tutup</button>
+    </div>
+</div>
+
+<div id="modal-approve" class="modal-overlay" style="display:none;">
+    <div class="modal-content" style="max-width: 360px;">
+        <div class="modal-header">
+            <h3 id="approve-title">Persetujuan</h3>
+        </div>
+        <div id="approve-content" style="padding: 15px 0; font-size: 14px; color: var(--text-muted);">
+            </div>
+        <div class="modal-actions" style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn btn-outline" onclick="handleReject()" style="flex: 1; background: #334155;">Tolak</button>
+            <button class="btn" onclick="handleApprove()" style="flex: 1; background: var(--success);">Setujui</button>
+        </div>
+    </div>
+</div>
 
     <script src="bip39.js"></script> 
     <script src="wallet.js"></script>
